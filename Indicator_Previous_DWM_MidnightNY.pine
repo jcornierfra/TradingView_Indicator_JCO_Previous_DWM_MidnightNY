@@ -1,7 +1,7 @@
 // This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
 // © jcornier
 //
-// Version: 1.0.0
+// Version: 1.1.0
 // GitHub: https://github.com/jcornierfra/TradingView_Indicator_JCO_Previous_DWM_MidnightNY
 //
 // Description: Displays Previous Day/Week/Month High/Low levels, Daily Mid Range,
@@ -266,6 +266,8 @@ if i_showMidnight
 grpLabels = "══════ Labels ══════"
 i_showLabels = input.bool(true, "Show Price Labels", group=grpLabels)
 i_labelSize  = input.string("Small", "Label Size", options=["Tiny", "Small", "Normal", "Large"], group=grpLabels)
+i_proximityThreshold = input.float(0.15, "Proximity Threshold (%)", minval=0.01, maxval=1.0, step=0.01, group=grpLabels, tooltip="Labels are offset when prices are within this % of each other")
+i_labelOffset = input.int(12, "Label Offset (bars)", minval=1, maxval=50, group=grpLabels, tooltip="Offset applied when labels are close")
 
 getLabelSize(string size) =>
     switch size
@@ -274,6 +276,35 @@ getLabelSize(string size) =>
         "Normal" => size.normal
         "Large"  => size.large
         => size.small
+
+// Function to check if two prices are close (within threshold %)
+isClose(float price1, float price2, float thresholdPct) =>
+    if na(price1) or na(price2)
+        false
+    else
+        math.abs(price1 - price2) / math.max(price1, price2) * 100 < thresholdPct
+
+// Function to count how many daily prices are close to a given price
+countCloseDailyPrices(float price, float thresholdPct) =>
+    count = 0
+    if i_showDaily and not na(prevDayHigh)
+        if isClose(price, prevDayHigh, thresholdPct)
+            count += 1
+        if isClose(price, prevDayLow, thresholdPct)
+            count += 1
+        if isClose(price, prevDayMid, thresholdPct)
+            count += 1
+    count
+
+// Function to count how many weekly prices are close to a given price
+countCloseWeeklyPrices(float price, float thresholdPct) =>
+    count = 0
+    if i_showWeekly and not na(prevWeekHigh)
+        if isClose(price, prevWeekHigh, thresholdPct)
+            count += 1
+        if isClose(price, prevWeekLow, thresholdPct)
+            count += 1
+    count
 
 var label dailyHighLabel   = na
 var label dailyLowLabel    = na
@@ -285,40 +316,68 @@ var label monthlyLowLabel  = na
 var label midnightLabel    = na
 
 if i_showLabels and barstate.islast
-    // Daily labels
+    // Base offset for all labels
+    baseOffset = 2
+
+    // Daily labels (always at base offset)
     if i_showDaily and not na(prevDayHigh)
         label.delete(dailyHighLabel)
         label.delete(dailyLowLabel)
         label.delete(dailyMidLabel)
-        dailyHighLabel := label.new(bar_index + 2, prevDayHigh, "PDH " + str.tostring(prevDayHigh, format.mintick),
+        dailyHighLabel := label.new(bar_index + baseOffset, prevDayHigh, "PDH " + str.tostring(prevDayHigh, format.mintick),
              color=color.new(i_dailyHighColor, 100), textcolor=i_dailyHighColor, style=label.style_label_left, size=getLabelSize(i_labelSize))
-        dailyLowLabel := label.new(bar_index + 2, prevDayLow, "PDL " + str.tostring(prevDayLow, format.mintick),
+        dailyLowLabel := label.new(bar_index + baseOffset, prevDayLow, "PDL " + str.tostring(prevDayLow, format.mintick),
              color=color.new(i_dailyLowColor, 100), textcolor=i_dailyLowColor, style=label.style_label_left, size=getLabelSize(i_labelSize))
-        dailyMidLabel := label.new(bar_index + 2, prevDayMid, "PDM " + str.tostring(prevDayMid, format.mintick),
+        dailyMidLabel := label.new(bar_index + baseOffset, prevDayMid, "PDM " + str.tostring(prevDayMid, format.mintick),
              color=color.new(i_dailyMidColor, 100), textcolor=i_dailyMidColor, style=label.style_label_left, size=getLabelSize(i_labelSize))
 
-    // Weekly labels (offset +14 to avoid overlap with daily)
+    // Weekly labels - offset if close to any daily price
     if i_showWeekly and not na(prevWeekHigh)
         label.delete(weeklyHighLabel)
         label.delete(weeklyLowLabel)
-        weeklyHighLabel := label.new(bar_index + 14, prevWeekHigh, "PWH " + str.tostring(prevWeekHigh, format.mintick),
+
+        weeklyHighOffset = countCloseDailyPrices(prevWeekHigh, i_proximityThreshold) > 0 ? baseOffset + i_labelOffset : baseOffset
+        weeklyLowOffset  = countCloseDailyPrices(prevWeekLow, i_proximityThreshold) > 0 ? baseOffset + i_labelOffset : baseOffset
+
+        weeklyHighLabel := label.new(bar_index + weeklyHighOffset, prevWeekHigh, "PWH " + str.tostring(prevWeekHigh, format.mintick),
              color=color.new(i_weeklyHighColor, 100), textcolor=i_weeklyHighColor, style=label.style_label_left, size=getLabelSize(i_labelSize))
-        weeklyLowLabel := label.new(bar_index + 14, prevWeekLow, "PWL " + str.tostring(prevWeekLow, format.mintick),
+        weeklyLowLabel := label.new(bar_index + weeklyLowOffset, prevWeekLow, "PWL " + str.tostring(prevWeekLow, format.mintick),
              color=color.new(i_weeklyLowColor, 100), textcolor=i_weeklyLowColor, style=label.style_label_left, size=getLabelSize(i_labelSize))
 
-    // Monthly labels (offset +26 to avoid overlap with daily and weekly)
+    // Monthly labels - offset if close to any daily or weekly price
     if i_showMonthly and not na(prevMonthHigh)
         label.delete(monthlyHighLabel)
         label.delete(monthlyLowLabel)
-        monthlyHighLabel := label.new(bar_index + 26, prevMonthHigh, "PMH " + str.tostring(prevMonthHigh, format.mintick),
+
+        monthlyHighCloseToDaily  = countCloseDailyPrices(prevMonthHigh, i_proximityThreshold) > 0
+        monthlyHighCloseToWeekly = countCloseWeeklyPrices(prevMonthHigh, i_proximityThreshold) > 0
+        monthlyLowCloseToDaily   = countCloseDailyPrices(prevMonthLow, i_proximityThreshold) > 0
+        monthlyLowCloseToWeekly  = countCloseWeeklyPrices(prevMonthLow, i_proximityThreshold) > 0
+
+        monthlyHighOffset = baseOffset
+        if monthlyHighCloseToDaily
+            monthlyHighOffset += i_labelOffset
+        if monthlyHighCloseToWeekly
+            monthlyHighOffset += i_labelOffset
+
+        monthlyLowOffset = baseOffset
+        if monthlyLowCloseToDaily
+            monthlyLowOffset += i_labelOffset
+        if monthlyLowCloseToWeekly
+            monthlyLowOffset += i_labelOffset
+
+        monthlyHighLabel := label.new(bar_index + monthlyHighOffset, prevMonthHigh, "PMH " + str.tostring(prevMonthHigh, format.mintick),
              color=color.new(i_monthlyHighColor, 100), textcolor=i_monthlyHighColor, style=label.style_label_left, size=getLabelSize(i_labelSize))
-        monthlyLowLabel := label.new(bar_index + 26, prevMonthLow, "PML " + str.tostring(prevMonthLow, format.mintick),
+        monthlyLowLabel := label.new(bar_index + monthlyLowOffset, prevMonthLow, "PML " + str.tostring(prevMonthLow, format.mintick),
              color=color.new(i_monthlyLowColor, 100), textcolor=i_monthlyLowColor, style=label.style_label_left, size=getLabelSize(i_labelSize))
 
-    // Midnight label
+    // Midnight label - offset if close to any daily price
     if i_showMidnight and not na(currentMidnightOpen)
         label.delete(midnightLabel)
-        midnightLabel := label.new(bar_index + 2, currentMidnightOpen, "Midnight NY " + str.tostring(currentMidnightOpen, format.mintick),
+
+        midnightOffset = countCloseDailyPrices(currentMidnightOpen, i_proximityThreshold) > 0 ? baseOffset + i_labelOffset : baseOffset
+
+        midnightLabel := label.new(bar_index + midnightOffset, currentMidnightOpen, "Midnight NY " + str.tostring(currentMidnightOpen, format.mintick),
              color=color.new(i_midnightColor, 100), textcolor=i_midnightColor, style=label.style_label_left, size=getLabelSize(i_labelSize))
 
 // ══════════════════════════════════════════════════════════════════════════════
