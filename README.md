@@ -1,5 +1,7 @@
 # Previous DWM + Midnight NY
 
+![Screenshot](screenshot.png)
+
 Indicateur Pine Script v6 pour TradingView affichant les niveaux clés des périodes précédentes et l'open de minuit New York.
 
 ## Fonctionnalités
@@ -34,7 +36,9 @@ Chaque groupe de niveaux dispose de ses propres paramètres :
 ### Paramètres Labels
 - Affichage des prix à droite des lignes
 - Taille configurable (Tiny, Small, Normal, Large)
-- Labels décalés pour éviter les chevauchements (Daily +2, Weekly +14, Monthly +26)
+- **Décalage dynamique** : les labels sont automatiquement décalés uniquement lorsque les prix sont proches
+- **Proximity Threshold (%)** : seuil de proximité pour déclencher le décalage (défaut: 0.15%)
+- **Label Offset (bars)** : nombre de barres de décalage appliqué (défaut: 12)
 
 ### Paramètres Midnight spécifiques
 - **Timezone** : New York, Chicago, Los Angeles, London, Paris, Berlin, Tokyo, Hong Kong, Sydney, UTC
