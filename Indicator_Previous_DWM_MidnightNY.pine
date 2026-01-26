@@ -1,0 +1,322 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © jcornier
+
+//@version=6
+indicator("Previous DWM + Midnight NY", overlay=true, max_lines_count=500)
+
+// ══════════════════════════════════════════════════════════════════════════════
+// TIMEZONE OPTIONS
+// ══════════════════════════════════════════════════════════════════════════════
+var TZ_NEW_YORK     = "America/New_York"
+var TZ_CHICAGO      = "America/Chicago"
+var TZ_LOS_ANGELES  = "America/Los_Angeles"
+var TZ_LONDON       = "Europe/London"
+var TZ_PARIS        = "Europe/Paris"
+var TZ_BERLIN       = "Europe/Berlin"
+var TZ_TOKYO        = "Asia/Tokyo"
+var TZ_HONG_KONG    = "Asia/Hong_Kong"
+var TZ_SYDNEY       = "Australia/Sydney"
+var TZ_UTC          = "UTC"
+
+timezoneToString(string tz) =>
+    switch tz
+        "New York"    => TZ_NEW_YORK
+        "Chicago"     => TZ_CHICAGO
+        "Los Angeles" => TZ_LOS_ANGELES
+        "London"      => TZ_LONDON
+        "Paris"       => TZ_PARIS
+        "Berlin"      => TZ_BERLIN
+        "Tokyo"       => TZ_TOKYO
+        "Hong Kong"   => TZ_HONG_KONG
+        "Sydney"      => TZ_SYDNEY
+        "UTC"         => TZ_UTC
+        => TZ_NEW_YORK
+
+// ══════════════════════════════════════════════════════════════════════════════
+// INPUTS - PREVIOUS DAILY
+// ══════════════════════════════════════════════════════════════════════════════
+grpDaily = "══════ Previous Daily ══════"
+i_showDaily      = input.bool(true, "Show Daily Lines", group=grpDaily)
+i_dailyHighColor = input.color(color.green, "High Color", group=grpDaily)
+i_dailyLowColor  = input.color(color.green, "Low Color", group=grpDaily)
+i_dailyWidth     = input.int(1, "Line Width (High/Low)", minval=1, maxval=5, group=grpDaily)
+i_dailyStyle     = input.string("Solid", "Line Style (High/Low)", options=["Solid", "Dashed", "Dotted"], group=grpDaily)
+i_dailyMidColor  = input.color(color.gray, "Mid Color", group=grpDaily)
+i_dailyMidWidth  = input.int(1, "Mid Line Width", minval=1, maxval=5, group=grpDaily)
+i_dailyMidStyle  = input.string("Dashed", "Mid Line Style", options=["Solid", "Dashed", "Dotted"], group=grpDaily)
+
+// ══════════════════════════════════════════════════════════════════════════════
+// INPUTS - PREVIOUS WEEKLY
+// ══════════════════════════════════════════════════════════════════════════════
+grpWeekly = "══════ Previous Weekly ══════"
+i_showWeekly      = input.bool(true, "Show Weekly Lines", group=grpWeekly)
+i_weeklyHighColor = input.color(color.orange, "High Color", group=grpWeekly)
+i_weeklyLowColor  = input.color(color.orange, "Low Color", group=grpWeekly)
+i_weeklyWidth     = input.int(1, "Line Width", minval=1, maxval=5, group=grpWeekly)
+i_weeklyStyle     = input.string("Solid", "Line Style", options=["Solid", "Dashed", "Dotted"], group=grpWeekly)
+
+// ══════════════════════════════════════════════════════════════════════════════
+// INPUTS - PREVIOUS MONTHLY
+// ══════════════════════════════════════════════════════════════════════════════
+grpMonthly = "══════ Previous Monthly ══════"
+i_showMonthly      = input.bool(true, "Show Monthly Lines", group=grpMonthly)
+i_monthlyHighColor = input.color(color.purple, "High Color", group=grpMonthly)
+i_monthlyLowColor  = input.color(color.purple, "Low Color", group=grpMonthly)
+i_monthlyWidth     = input.int(1, "Line Width", minval=1, maxval=5, group=grpMonthly)
+i_monthlyStyle     = input.string("Solid", "Line Style", options=["Solid", "Dashed", "Dotted"], group=grpMonthly)
+
+// ══════════════════════════════════════════════════════════════════════════════
+// INPUTS - MIDNIGHT OPEN
+// ══════════════════════════════════════════════════════════════════════════════
+grpMidnight = "══════ Midnight Open ══════"
+i_showMidnight      = input.bool(true, "Show Midnight Line", group=grpMidnight)
+i_midnightColor     = input.color(color.blue, "Color", group=grpMidnight)
+i_midnightWidth     = input.int(1, "Line Width", minval=1, maxval=5, group=grpMidnight)
+i_midnightStyle     = input.string("Solid", "Line Style", options=["Solid", "Dashed", "Dotted"], group=grpMidnight)
+i_midnightTimezone  = input.string("New York", "Timezone", options=["New York", "Chicago", "Los Angeles", "London", "Paris", "Berlin", "Tokyo", "Hong Kong", "Sydney", "UTC"], group=grpMidnight)
+i_midnightHour      = input.int(0, "Hour (0-23)", minval=0, maxval=23, group=grpMidnight)
+i_midnightMinute    = input.int(0, "Minute (0-59)", minval=0, maxval=59, group=grpMidnight)
+
+// ══════════════════════════════════════════════════════════════════════════════
+// INPUTS - EMA
+// ══════════════════════════════════════════════════════════════════════════════
+grpEMA = "══════ EMA ══════"
+i_showEMA    = input.bool(true, "Show EMA", group=grpEMA)
+i_emaPeriod  = input.int(50, "Period", minval=1, maxval=500, group=grpEMA)
+i_emaColor   = input.color(color.blue, "Color", group=grpEMA)
+i_emaWidth   = input.int(1, "Line Width", minval=1, maxval=5, group=grpEMA)
+
+// ══════════════════════════════════════════════════════════════════════════════
+// FUNCTIONS
+// ══════════════════════════════════════════════════════════════════════════════
+getLineStyle(string style) =>
+    switch style
+        "Solid"  => line.style_solid
+        "Dashed" => line.style_dashed
+        "Dotted" => line.style_dotted
+        => line.style_solid
+
+// ══════════════════════════════════════════════════════════════════════════════
+// PREVIOUS DAILY DATA (using daily timeframe)
+// ══════════════════════════════════════════════════════════════════════════════
+[prevDayHigh, prevDayLow, prevDayClose] = request.security(syminfo.tickerid, "D", [high[1], low[1], close[1]], lookahead=barmerge.lookahead_on)
+prevDayMid = (prevDayHigh + prevDayLow) / 2
+
+// Detect new day
+dayChange = ta.change(time("D"))
+newDay = dayChange != 0
+
+// ══════════════════════════════════════════════════════════════════════════════
+// PREVIOUS WEEKLY DATA (using weekly timeframe)
+// ══════════════════════════════════════════════════════════════════════════════
+[prevWeekHigh, prevWeekLow] = request.security(syminfo.tickerid, "W", [high[1], low[1]], lookahead=barmerge.lookahead_on)
+
+// Detect new week
+weekChange = ta.change(time("W"))
+newWeek = weekChange != 0
+
+// ══════════════════════════════════════════════════════════════════════════════
+// PREVIOUS MONTHLY DATA (using monthly timeframe)
+// ══════════════════════════════════════════════════════════════════════════════
+[prevMonthHigh, prevMonthLow] = request.security(syminfo.tickerid, "M", [high[1], low[1]], lookahead=barmerge.lookahead_on)
+
+// Detect new month
+monthChange = ta.change(time("M"))
+newMonth = monthChange != 0
+
+// ══════════════════════════════════════════════════════════════════════════════
+// MIDNIGHT OPEN DATA
+// ══════════════════════════════════════════════════════════════════════════════
+midnightTz = timezoneToString(i_midnightTimezone)
+
+// Get hour and minute in the selected timezone
+currentHour   = hour(time, midnightTz)
+currentMinute = minute(time, midnightTz)
+
+// Detect midnight candle (first candle at or after the specified time)
+isMidnightBar = currentHour == i_midnightHour and currentMinute == i_midnightMinute
+
+// Get the open price at midnight from 1-minute timeframe for accuracy
+midnightOpen = request.security(syminfo.tickerid, "1", isMidnightBar ? open : na, lookahead=barmerge.lookahead_on)
+
+// Track the current midnight open value
+var float currentMidnightOpen = na
+var int   midnightStartBar    = na
+
+if not na(midnightOpen)
+    currentMidnightOpen := midnightOpen
+    midnightStartBar    := bar_index
+
+// Detect new midnight (for drawing new line)
+newMidnight = not na(midnightOpen)
+
+// ══════════════════════════════════════════════════════════════════════════════
+// LINE DRAWING - DAILY
+// ══════════════════════════════════════════════════════════════════════════════
+var line dailyHighLine = na
+var line dailyLowLine  = na
+var line dailyMidLine  = na
+
+if i_showDaily
+    if newDay
+        // Delete old lines
+        line.delete(dailyHighLine)
+        line.delete(dailyLowLine)
+        line.delete(dailyMidLine)
+
+        // Create new lines
+        dailyHighLine := line.new(bar_index, prevDayHigh, bar_index + 1, prevDayHigh,
+             color=i_dailyHighColor, width=i_dailyWidth, style=getLineStyle(i_dailyStyle), extend=extend.none)
+        dailyLowLine := line.new(bar_index, prevDayLow, bar_index + 1, prevDayLow,
+             color=i_dailyLowColor, width=i_dailyWidth, style=getLineStyle(i_dailyStyle), extend=extend.none)
+        dailyMidLine := line.new(bar_index, prevDayMid, bar_index + 1, prevDayMid,
+             color=i_dailyMidColor, width=i_dailyMidWidth, style=getLineStyle(i_dailyMidStyle), extend=extend.none)
+    else
+        // Extend lines to current bar
+        if not na(dailyHighLine)
+            line.set_x2(dailyHighLine, bar_index)
+            line.set_y2(dailyHighLine, prevDayHigh)
+        if not na(dailyLowLine)
+            line.set_x2(dailyLowLine, bar_index)
+            line.set_y2(dailyLowLine, prevDayLow)
+        if not na(dailyMidLine)
+            line.set_x2(dailyMidLine, bar_index)
+            line.set_y2(dailyMidLine, prevDayMid)
+
+// ══════════════════════════════════════════════════════════════════════════════
+// LINE DRAWING - WEEKLY
+// ══════════════════════════════════════════════════════════════════════════════
+var line weeklyHighLine = na
+var line weeklyLowLine  = na
+
+if i_showWeekly
+    if newWeek
+        // Delete old lines
+        line.delete(weeklyHighLine)
+        line.delete(weeklyLowLine)
+
+        // Create new lines
+        weeklyHighLine := line.new(bar_index, prevWeekHigh, bar_index + 1, prevWeekHigh,
+             color=i_weeklyHighColor, width=i_weeklyWidth, style=getLineStyle(i_weeklyStyle), extend=extend.none)
+        weeklyLowLine := line.new(bar_index, prevWeekLow, bar_index + 1, prevWeekLow,
+             color=i_weeklyLowColor, width=i_weeklyWidth, style=getLineStyle(i_weeklyStyle), extend=extend.none)
+    else
+        // Extend lines to current bar
+        if not na(weeklyHighLine)
+            line.set_x2(weeklyHighLine, bar_index)
+            line.set_y2(weeklyHighLine, prevWeekHigh)
+        if not na(weeklyLowLine)
+            line.set_x2(weeklyLowLine, bar_index)
+            line.set_y2(weeklyLowLine, prevWeekLow)
+
+// ══════════════════════════════════════════════════════════════════════════════
+// LINE DRAWING - MONTHLY
+// ══════════════════════════════════════════════════════════════════════════════
+var line monthlyHighLine = na
+var line monthlyLowLine  = na
+
+if i_showMonthly
+    if newMonth
+        // Delete old lines
+        line.delete(monthlyHighLine)
+        line.delete(monthlyLowLine)
+
+        // Create new lines
+        monthlyHighLine := line.new(bar_index, prevMonthHigh, bar_index + 1, prevMonthHigh,
+             color=i_monthlyHighColor, width=i_monthlyWidth, style=getLineStyle(i_monthlyStyle), extend=extend.none)
+        monthlyLowLine := line.new(bar_index, prevMonthLow, bar_index + 1, prevMonthLow,
+             color=i_monthlyLowColor, width=i_monthlyWidth, style=getLineStyle(i_monthlyStyle), extend=extend.none)
+    else
+        // Extend lines to current bar
+        if not na(monthlyHighLine)
+            line.set_x2(monthlyHighLine, bar_index)
+            line.set_y2(monthlyHighLine, prevMonthHigh)
+        if not na(monthlyLowLine)
+            line.set_x2(monthlyLowLine, bar_index)
+            line.set_y2(monthlyLowLine, prevMonthLow)
+
+// ══════════════════════════════════════════════════════════════════════════════
+// LINE DRAWING - MIDNIGHT
+// ══════════════════════════════════════════════════════════════════════════════
+var line midnightLine = na
+
+if i_showMidnight
+    if newMidnight
+        // Delete old line
+        line.delete(midnightLine)
+
+        // Create new line
+        midnightLine := line.new(bar_index, currentMidnightOpen, bar_index + 1, currentMidnightOpen,
+             color=i_midnightColor, width=i_midnightWidth, style=getLineStyle(i_midnightStyle), extend=extend.none)
+    else
+        // Extend line to current bar
+        if not na(midnightLine) and not na(currentMidnightOpen)
+            line.set_x2(midnightLine, bar_index)
+            line.set_y2(midnightLine, currentMidnightOpen)
+
+// ══════════════════════════════════════════════════════════════════════════════
+// LABELS (optional - for price display)
+// ══════════════════════════════════════════════════════════════════════════════
+grpLabels = "══════ Labels ══════"
+i_showLabels = input.bool(true, "Show Price Labels", group=grpLabels)
+i_labelSize  = input.string("Small", "Label Size", options=["Tiny", "Small", "Normal", "Large"], group=grpLabels)
+
+getLabelSize(string size) =>
+    switch size
+        "Tiny"   => size.tiny
+        "Small"  => size.small
+        "Normal" => size.normal
+        "Large"  => size.large
+        => size.small
+
+var label dailyHighLabel   = na
+var label dailyLowLabel    = na
+var label dailyMidLabel    = na
+var label weeklyHighLabel  = na
+var label weeklyLowLabel   = na
+var label monthlyHighLabel = na
+var label monthlyLowLabel  = na
+var label midnightLabel    = na
+
+if i_showLabels and barstate.islast
+    // Daily labels
+    if i_showDaily and not na(prevDayHigh)
+        label.delete(dailyHighLabel)
+        label.delete(dailyLowLabel)
+        label.delete(dailyMidLabel)
+        dailyHighLabel := label.new(bar_index + 2, prevDayHigh, "PDH " + str.tostring(prevDayHigh, format.mintick),
+             color=color.new(i_dailyHighColor, 100), textcolor=i_dailyHighColor, style=label.style_label_left, size=getLabelSize(i_labelSize))
+        dailyLowLabel := label.new(bar_index + 2, prevDayLow, "PDL " + str.tostring(prevDayLow, format.mintick),
+             color=color.new(i_dailyLowColor, 100), textcolor=i_dailyLowColor, style=label.style_label_left, size=getLabelSize(i_labelSize))
+        dailyMidLabel := label.new(bar_index + 2, prevDayMid, "PDM " + str.tostring(prevDayMid, format.mintick),
+             color=color.new(i_dailyMidColor, 100), textcolor=i_dailyMidColor, style=label.style_label_left, size=getLabelSize(i_labelSize))
+
+    // Weekly labels (offset +14 to avoid overlap with daily)
+    if i_showWeekly and not na(prevWeekHigh)
+        label.delete(weeklyHighLabel)
+        label.delete(weeklyLowLabel)
+        weeklyHighLabel := label.new(bar_index + 14, prevWeekHigh, "PWH " + str.tostring(prevWeekHigh, format.mintick),
+             color=color.new(i_weeklyHighColor, 100), textcolor=i_weeklyHighColor, style=label.style_label_left, size=getLabelSize(i_labelSize))
+        weeklyLowLabel := label.new(bar_index + 14, prevWeekLow, "PWL " + str.tostring(prevWeekLow, format.mintick),
+             color=color.new(i_weeklyLowColor, 100), textcolor=i_weeklyLowColor, style=label.style_label_left, size=getLabelSize(i_labelSize))
+
+    // Monthly labels (offset +26 to avoid overlap with daily and weekly)
+    if i_showMonthly and not na(prevMonthHigh)
+        label.delete(monthlyHighLabel)
+        label.delete(monthlyLowLabel)
+        monthlyHighLabel := label.new(bar_index + 26, prevMonthHigh, "PMH " + str.tostring(prevMonthHigh, format.mintick),
+             color=color.new(i_monthlyHighColor, 100), textcolor=i_monthlyHighColor, style=label.style_label_left, size=getLabelSize(i_labelSize))
+        monthlyLowLabel := label.new(bar_index + 26, prevMonthLow, "PML " + str.tostring(prevMonthLow, format.mintick),
+             color=color.new(i_monthlyLowColor, 100), textcolor=i_monthlyLowColor, style=label.style_label_left, size=getLabelSize(i_labelSize))
+
+    // Midnight label
+    if i_showMidnight and not na(currentMidnightOpen)
+        label.delete(midnightLabel)
+        midnightLabel := label.new(bar_index + 2, currentMidnightOpen, "Midnight NY " + str.tostring(currentMidnightOpen, format.mintick),
+             color=color.new(i_midnightColor, 100), textcolor=i_midnightColor, style=label.style_label_left, size=getLabelSize(i_labelSize))
+
+// ══════════════════════════════════════════════════════════════════════════════
+// EMA
+// ══════════════════════════════════════════════════════════════════════════════
+emaValue = ta.ema(close, i_emaPeriod)
+plot(i_showEMA ? emaValue : na, "EMA", color=i_emaColor, linewidth=i_emaWidth)
