@@ -1,5 +1,11 @@
 // This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
 // © jcornier
+//
+// Version: 1.0.0
+// GitHub: https://github.com/jcornierfra/TradingView_Indicator_JCO_Previous_DWM_MidnightNY
+//
+// Description: Displays Previous Day/Week/Month High/Low levels, Daily Mid Range,
+//              Midnight NY Open, and EMA with customizable parameters.
 
 //@version=6
 indicator("Previous DWM + Midnight NY", overlay=true, max_lines_count=500)
