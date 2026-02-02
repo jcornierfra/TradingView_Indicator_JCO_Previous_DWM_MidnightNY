@@ -1,7 +1,7 @@
 // This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
 // © jcornier
 //
-// Version: 1.1.0
+// Version: 1.1.1
 // GitHub: https://github.com/jcornierfra/TradingView_Indicator_JCO_Previous_DWM_MidnightNY
 //
 // Description: Displays Previous Day/Week/Month High/Low levels, Daily Mid Range,
@@ -371,11 +371,18 @@ if i_showLabels and barstate.islast
         monthlyLowLabel := label.new(bar_index + monthlyLowOffset, prevMonthLow, "PML " + str.tostring(prevMonthLow, format.mintick),
              color=color.new(i_monthlyLowColor, 100), textcolor=i_monthlyLowColor, style=label.style_label_left, size=getLabelSize(i_labelSize))
 
-    // Midnight label - offset if close to any daily price
+    // Midnight label - offset if close to any daily or weekly price
     if i_showMidnight and not na(currentMidnightOpen)
         label.delete(midnightLabel)
 
-        midnightOffset = countCloseDailyPrices(currentMidnightOpen, i_proximityThreshold) > 0 ? baseOffset + i_labelOffset : baseOffset
+        midnightCloseToDaily  = countCloseDailyPrices(currentMidnightOpen, i_proximityThreshold) > 0
+        midnightCloseToWeekly = countCloseWeeklyPrices(currentMidnightOpen, i_proximityThreshold) > 0
+
+        midnightOffset = baseOffset
+        if midnightCloseToDaily
+            midnightOffset += i_labelOffset
+        if midnightCloseToWeekly
+            midnightOffset += i_labelOffset
 
         midnightLabel := label.new(bar_index + midnightOffset, currentMidnightOpen, "Midnight NY " + str.tostring(currentMidnightOpen, format.mintick),
              color=color.new(i_midnightColor, 100), textcolor=i_midnightColor, style=label.style_label_left, size=getLabelSize(i_labelSize))
