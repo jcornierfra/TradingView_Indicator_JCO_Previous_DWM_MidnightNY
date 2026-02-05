@@ -8,7 +8,7 @@
 //              Midnight NY Open, and EMA with customizable parameters.
 
 //@version=6
-indicator("Previous DWM + Midnight NY", overlay=true, max_lines_count=500)
+indicator("JCO Previous DWM + Midnight NY", overlay=true, max_lines_count=500)
 
 // ══════════════════════════════════════════════════════════════════════════════
 // TIMEZONE OPTIONS
