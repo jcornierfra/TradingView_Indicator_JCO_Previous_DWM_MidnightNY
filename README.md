@@ -21,10 +21,6 @@ Indicateur Pine Script v6 pour TradingView affichant les niveaux clés des péri
 - Timezone configurable (New York par défaut)
 - Heure et minute configurables
 
-### EMA
-- Moyenne mobile exponentielle configurable
-- Période par défaut : 50
-
 ## Paramètres
 
 Chaque groupe de niveaux dispose de ses propres paramètres :
