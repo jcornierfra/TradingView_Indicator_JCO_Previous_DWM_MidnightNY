@@ -1,11 +1,11 @@
 // This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
 // © jcornier
 //
-// Version: 1.1.1
+// Version: 1.2.0
 // GitHub: https://github.com/jcornierfra/TradingView_Indicator_JCO_Previous_DWM_MidnightNY
 //
 // Description: Displays Previous Day/Week/Month High/Low levels, Daily Mid Range,
-//              Midnight NY Open, and EMA with customizable parameters.
+//              and Midnight NY Open with customizable parameters.
 
 //@version=6
 indicator("JCO Previous DWM + Midnight NY", overlay=true, max_lines_count=500)
@@ -82,15 +82,6 @@ i_midnightStyle     = input.string("Solid", "Line Style", options=["Solid", "Das
 i_midnightTimezone  = input.string("New York", "Timezone", options=["New York", "Chicago", "Los Angeles", "London", "Paris", "Berlin", "Tokyo", "Hong Kong", "Sydney", "UTC"], group=grpMidnight)
 i_midnightHour      = input.int(0, "Hour (0-23)", minval=0, maxval=23, group=grpMidnight)
 i_midnightMinute    = input.int(0, "Minute (0-59)", minval=0, maxval=59, group=grpMidnight)
-
-// ══════════════════════════════════════════════════════════════════════════════
-// INPUTS - EMA
-// ══════════════════════════════════════════════════════════════════════════════
-grpEMA = "══════ EMA ══════"
-i_showEMA    = input.bool(true, "Show EMA", group=grpEMA)
-i_emaPeriod  = input.int(50, "Period", minval=1, maxval=500, group=grpEMA)
-i_emaColor   = input.color(color.blue, "Color", group=grpEMA)
-i_emaWidth   = input.int(1, "Line Width", minval=1, maxval=5, group=grpEMA)
 
 // ══════════════════════════════════════════════════════════════════════════════
 // FUNCTIONS
@@ -387,8 +378,3 @@ if i_showLabels and barstate.islast
         midnightLabel := label.new(bar_index + midnightOffset, currentMidnightOpen, "Midnight NY " + str.tostring(currentMidnightOpen, format.mintick),
              color=color.new(i_midnightColor, 100), textcolor=i_midnightColor, style=label.style_label_left, size=getLabelSize(i_labelSize))
 
-// ══════════════════════════════════════════════════════════════════════════════
-// EMA
-// ══════════════════════════════════════════════════════════════════════════════
-emaValue = ta.ema(close, i_emaPeriod)
-plot(i_showEMA ? emaValue : na, "EMA", color=i_emaColor, linewidth=i_emaWidth)
